@@ -1,0 +1,67 @@
+# step 1 : install java
+# step 2 : install jenkins
+# step 3 : systemctl start jenkins
+# step 4 : systemctl enable jenkins
+# step 5 : open in browser : <ip address>:8080
+# step 6 : create default user 
+# step 7 : 
+
+----------------------------------------------------------------------------------------------------------------------
+# install java
+
+$ sudo apt update
+$ sudo apt install openjdk-11-jre
+$ java -version
+
+# install jenkins
+
+curl -fsSL https://pkg.jenkins.io/debian-stable/jenkins.io-2023.key | sudo tee /usr/share/keyrings/jenkins-keyring.asc > /dev/null
+echo deb [signed-by=/usr/share/keyrings/jenkins-keyring.asc] https://pkg.jenkins.io/debian-stable binary/ | sudo tee /etc/apt/sources.list.d/jenkins.list > /dev/null
+sudo apt-get update
+sudo apt-get install jenkins
+
+# <ip address>:8080
+-> enter the password from the file given file /var/lib/jenkins/secrets/initialadminpassword
+
+
+# second job
+
+# create docker file in workspace of the docker
+-> cd /var/lib/jenkins/workspace/
+-> ls
+-> cd first-job(or project name)
+-> vi Dockerfile
+    -> FROM nginx:latest
+    -> COPY . /usr/share/nginx/html
+
+# create another job
+-> open jenkins -> Dashboard -> new item -> freestyle project 
+    -> build triggers -> built after other projects are built -> trigger only if build is stable
+    # note: if error comes, then remove the space character then error will be removed
+    # note: if second job depends on previous job then, dont click on build periodically
+
+-> Build steps
+    -> execute shell
+        -> cd /var/jenkin/workspace/first-job/
+        -> docker build -t myweb:1.0
+        -> docker save myweb:1.0 > myweb.tar
+        -> click apply and save
+
+# third job
+# transfer the tar file from jenkin server to production server using scp command 
+-> build after other project are built
+    -> project to watch: second-job
+-> Build steps  
+    -> execute shell    
+        -> cd /var/lib/jenkins/workspace/first-job/
+        -> scp myweb.tar root@<IP_address>:/home/user
+        # we can't copy the image file without root password, to avoid this we'll use keyless login using shell
+            -> password less login from (jenkins -> hpcsa)
+            -> su -s /bin/bash jenkins 
+            -> ssh-keygen (press enter 3 times)
+                -> to check the key 
+                    -> cd .ssh/
+                    -> ls
+            -> ssh-copy-id hpcsa@<IP_address>
+        -> ssh hpcsa@<ip> 'docker load < myweb.tar'
+        -> ssh hpcsa@<ip> 'docker run --name web1 -d -p 9000:80 myweb:1.0'
